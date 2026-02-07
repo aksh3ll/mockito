@@ -1,16 +1,17 @@
 package mockito.example.service;
 
 import java.util.UUID;
-
+import lombok.AllArgsConstructor;
+import mockito.example.exceptions.UnicornNotFoundException;
+import mockito.example.pojo.CreateUnicornRequest;
+import mockito.example.pojo.Unicorn;
+import mockito.example.pojo.UnicornsInfo;
 import mockito.example.repository.UnicornRepository;
 
+@AllArgsConstructor
 public class UnicornService {
 
   private final UnicornRepository repository;
-
-  public UnicornService(UnicornRepository repository) {
-    this.repository = repository;
-  }
 
   public void updateUnicornSize(UUID id, int size) {
     var unicorn = getUnicorn(id);
@@ -26,9 +27,9 @@ public class UnicornService {
   public UUID createUnicorn(CreateUnicornRequest request) {
     var unicorn = new Unicorn();
     unicorn.setId(UUID.randomUUID());
-    unicorn.setSize(request.getSize());
-    unicorn.setName(request.getName());
-    repository.save(unicorn);
+    unicorn.setSize(request.size());
+    unicorn.setName(request.name());
+    unicorn = repository.save(unicorn);
     return unicorn.getId();
   }
 
@@ -37,11 +38,9 @@ public class UnicornService {
   }
 
   public UnicornsInfo getInfo() {
-    var info = new UnicornsInfo();
-    info.setTotalUnicorns(repository.count());
-    info.setFemaleAverageSize(UnicornUtils.averageSize(UnicornGender.FEMALE));
-    info.setMaleAverageSize(UnicornUtils.averageSize(UnicornGender.MALE));
-    return info;
+    return new UnicornsInfo(
+            repository.count(),
+            UnicornUtils.averageSize(UnicornGender.FEMALE),
+            UnicornUtils.averageSize(UnicornGender.MALE));
   }
-
 }

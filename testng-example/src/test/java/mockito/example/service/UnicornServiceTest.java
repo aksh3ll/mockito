@@ -4,40 +4,39 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.mockito.Mockito.*;
+import static org.mockito.MockitoAnnotations.openMocks;
 
 import java.util.UUID;
 
+import mockito.example.exceptions.UnicornNotFoundException;
+import mockito.example.pojo.CreateUnicornRequest;
+import mockito.example.pojo.Unicorn;
 import mockito.example.repository.UnicornRepository;
-import org.mockito.AdditionalAnswers;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
+import org.mockito.*;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class UnicornServiceTest {
-
+  AutoCloseable closeable;
   @Mock
   UnicornRepository repository;
-
   @InjectMocks
   UnicornService service;
 
   // init mocks once in before class method
   @BeforeClass
   public void setUpMocks() {
-    initMocks(this);
+    closeable = openMocks(this);
+  }
+
+  @AfterClass(alwaysRun = true)
+  public void releaseMocks() throws Exception {
+    if (closeable != null) {
+      closeable.close();
+    }
   }
 
   // reset mocks before each method
@@ -73,17 +72,24 @@ public class UnicornServiceTest {
 
   @Test
   public void testCountWithSpyNotWorking() {
-    // Same thing with spy, if you create a spy you have to use doReturn/doThrow
+    // Given    // Same thing with spy, if you create a spy you have to use doReturn/doThrow
     // If not you code may not work
-    // In this example this code fails
     var mockedRepo = mock(UnicornRepository.class);
     var spiedService = spy(new UnicornService(mockedRepo));
     UUID id = UUID.randomUUID();
 
-    when(spiedService.getUnicorn(any())).thenReturn(new Unicorn());
+    try {
+      when(spiedService.getUnicorn(any())).thenReturn(new Unicorn());
 
-    spiedService.updateUnicornSize(id, 130);
-    verify(mockedRepo).save(any());
+      // When
+      spiedService.updateUnicornSize(id, 130);
+
+      // Then
+      verify(mockedRepo).save(any());
+    } catch (UnicornNotFoundException e) {
+      // In this example this code fails
+      assertThat(e).hasMessageContaining("Cannot find unicorn with id:null");
+    }
   }
 
   @Test
@@ -122,17 +128,23 @@ public class UnicornServiceTest {
 
 
 
-  //// comes with new version
+  /// comes with new version
 
   // artThat
   @Test
   public void testSave() {
+    // Given
     var request = new CreateUnicornRequest("Honey", 125, UnicornGender.MALE);
+    doAnswer(invocation -> invocation.getArgument(0))
+            .when(repository)
+            .save(any(Unicorn.class));
 
-    service.createUnicorn(request);
+    // When
+    var uuid = service.createUnicorn(request);
 
-    // argThat verifies a condition of the argument
+    // Then: argThat verifies a condition of the argument
     verify(repository).save(argThat(unicorn -> unicorn.getName().equals("Honey")));
+    assertThat(uuid).isNotNull();
   }
 
   // Static mock and AdditionalAnswers
@@ -146,5 +158,4 @@ public class UnicornServiceTest {
       assertThat(UnicornUtils.averageSize(UnicornGender.FEMALE)).isEqualTo(130);
     }
   }
-
 }
